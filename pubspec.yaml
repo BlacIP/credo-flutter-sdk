@@ -1,0 +1,23 @@
+name: credo_flutter_sdk
+description: Official Flutter SDK for Credo Payment Gateway. Accept payments via cards, bank transfers, USSD, and more.
+version: 1.0.0
+homepage: https://github.com/yourusername/credo-flutter-sdk
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  webview_flutter: ^4.4.0
+  url_launcher: ^6.2.0
+  crypto: ^3.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  mockito: ^5.4.0
+  build_runner: ^2.4.0
