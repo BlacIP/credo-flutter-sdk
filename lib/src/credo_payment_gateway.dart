@@ -28,14 +28,24 @@ class CredoPaymentGateway {
   /// Get current environment
   CredoEnvironment get environment => _environment;
 
+  /// Initializes a new payment transaction.
+  ///
+  /// This is the first step in the payment flow. It returns an [InitializePaymentResponse]
+  /// which includes the `authorizationUrl` needed to open the checkout WebView.
   Future<InitializePaymentResponse> initializePayment(
     InitializePaymentRequest request,
   ) =>
       _paymentService.initializePayment(request);
 
-  /// Verify a payment transaction via your secure backend (RECOMMENDED)
+  /// Verifies a payment transaction via your secure backend servant (RECOMMENDED).
   ///
-  /// This keeps your Secret Key off the mobile device.
+  /// For production, you should never store your Secret Key in the mobile app.
+  /// Use this method to hit your server endpoint, which will proxy the
+  /// request to Credo using your Secret Key and return the status.
+  ///
+  /// * [backendUrl]: The full endpoint URL of your verification service.
+  /// * [transRef]: The transaction reference obtained after initialization.
+  /// * [headers]: Optional headers (e.g., Auth tokens) for your backend.
   Future<VerifyPaymentResponse> verifyPaymentViaBackend(
     String backendUrl,
     String transRef, {
@@ -47,9 +57,11 @@ class CredoPaymentGateway {
         headers: headers,
       );
 
-  /// Verify a payment transaction directly (NOT RECOMMENDED for production)
+  /// Verifies a payment transaction directly with Credo (NOT RECOMMENDED for production).
   ///
-  /// ONLY use this for sandbox testing. Never use with Secret Keys in production.
+  /// **WARNING**: This requires a Secret Key which should NEVER be embedded
+  /// in a client-side application. Only use this for rapid prototyping
+  /// in a sandbox environment.
   Future<VerifyPaymentResponse> verifyPaymentDirectly(String transRef) =>
       _paymentService.verifyPaymentDirectly(
         VerifyPaymentRequest(transRef: transRef),

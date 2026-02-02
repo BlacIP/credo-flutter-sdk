@@ -1,123 +1,98 @@
 # Credo Flutter SDK
 
-Official Flutter SDK for integrating [Credo Payment Gateway](https://credocentral.com) into your Flutter applications. Accept payments via cards, bank transfers, USSD, and more with a focus on ease of use and security.
+The official Flutter SDK for integrating [Credo Payment Gateway](https://credocentral.com) into your Flutter applications. The Credo Flutter SDK provides methods that allow developers to build a secure and convenient payment flow.
 
-[![pub package](https://img.shields.io/pub/v/credo_flutter_sdk.svg)](https://pub.dev/packages/credo_flutter_sdk)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-## Features
-
-✅ **Payment Initialization** - Cross-platform support for initializing payments (Web, Mobile, Desktop).  
-✅ **Secure WebView** - Dedicated widget for handling the checkout flow and 3DS verification.  
-✅ **Automatic Callbacks** - Listen for completion events and extract transaction references.  
-✅ **Backend-Mediated Verification** - Securely verify transactions via your server.  
-✅ **Webhook Security** - Robust SHA256 signature verification for backend security.  
-✅ **Type-Safe Status** - Comprehensive enums for all Credo transaction states.
+Integration is a simple two-step process:
+1.  **Initiate the transaction** on the SDK (Client) or API (Server).
+2.  **Complete it** on the SDK using the `CredoPaymentWebView`.
 
 ---
 
-## 🛡️ Security Best Practices
+## 🛠 Project Requirements
 
-> [!IMPORTANT]
-> **Never store your Secret Key or Merchant Token in your Flutter application.**  
-> Doing so allows attackers to decompile your app, steal your credentials, and spoof payments.
-
-1.  **Public Key Only**: Only use your **Public API Key** inside your Flutter project.
-2.  **Verify on Backend**: Use `verifyPaymentViaBackend()` to check transaction status through your secure server.
-3.  **Validate Webhooks**: Use `WebhookHelper.verifySignature()` on your server to confirm that incoming payment notifications are authentically from Credo.
+- **Flutter**: `>= 3.0.0`
+- **iOS**: `>= 13.0`
+- **Android**: `Min SDK 21`
 
 ---
 
-## Installation
+## 🚀 Getting Started
 
-Add this to your package's `pubspec.yaml` file:
+To add the Credo Flutter SDK to your project, run the command below:
 
-```yaml
-dependencies:
-  credo_flutter_sdk: ^1.0.0
+```bash
+flutter pub add credo_flutter_sdk
 ```
 
-## Quick Start
-
-### 1. Initialize the SDK
+This command adds `credo_flutter_sdk` to your `pubspec.yaml`. To use the library, import it:
 
 ```dart
 import 'package:credo_flutter_sdk/credo_flutter_sdk.dart';
-
-final credo = CredoPaymentGateway(
-  apiKey: 'YOUR_PUBLIC_API_KEY',
-  environment: CredoEnvironment.sandbox, // or production
-);
 ```
 
-### 2. Initialize a Payment
+---
 
+## 🛡️ Secret Key Safeguarding
+
+> [!CAUTION]
+> **Do not make API requests that require your Secret Key directly from your mobile app.**  
+> Your Secret Key should only be used on your secure server. Use your **Public Key** for SDK initialization.
+
+---
+
+## ⚡ Quick Start
+
+### 1. Initialize the Gateway
 ```dart
-final request = InitializePaymentRequest(
-  email: 'customer@example.com',
-  amount: 10000, // Amount in kobo (₦100.00)
-  currency: Currency.ngn,
+final credo = CredoPaymentGateway(
+  apiKey: 'pk_domain_xxxxxx',
+  environment: CredoEnvironment.sandbox,
 );
-
-final response = await credo.initializePayment(request);
 ```
 
-### 3. Open Checkout WebView
+### 2. Initialize Payment
+```dart
+final response = await credo.initializePayment(
+  InitializePaymentRequest(
+    email: 'user@example.com',
+    amount: 10000, // ₦100.00
+  ),
+);
+```
 
+### 3. Launch Checkout
 ```dart
 Navigator.push(
   context,
   MaterialPageRoute(
     builder: (context) => CredoPaymentWebView(
       authorizationUrl: response.authorizationUrl!,
-      callbackUrl: 'https://your-callback-url.com',
-      onSuccess: (reference) {
-        Navigator.pop(context);
-        handlePaymentSuccess(reference);
-      },
-      onError: (error) => print('Error: $error'),
-      onCancelled: () => print('User cancelled'),
+      onSuccess: (ref) => handleSuccess(ref),
     ),
   ),
 );
 ```
 
-### 4. Verify Transaction (Secure Flow)
+---
 
-Verify the payment through your server to avoid exposing your Secret Key:
+## ✅ Secure Verification
+
+For production, always verify transactions via your backend:
 
 ```dart
-// The SDK hits your endpoint, which should then call Credo with your Secret Key
-final result = await credo.verifyPaymentViaBackend(
-  'https://your-api.com/verify', // Your backend URL
+await credo.verifyPaymentViaBackend(
+  'https://your-api.com/verify', // Your backend endpoint
   reference,
 );
-
-if (result.isSuccessful) {
-  print('Verified Status: ${result.status?.text}');
-}
 ```
 
 ---
 
-## 🛠️ Webhook Security (Backend Only)
-
-When Credo notifies your server of a payment, verify the signature using the `WebhookHelper` (intended for Dart server-side use or as a logic reference):
-
-```dart
-final isValid = WebhookHelper.verifySignature(
-  signature: headers['credo-signature'],
-  merchantToken: 'YOUR_MERCHANT_TOKEN',
-  transRef: payload['transref'],
-  businessRef: payload['reference'],
-);
-```
+## 📖 Detailed Documentation
+For detailed parameter references, error codes, and webhook guides, see our [Full Technical Guide](DOCUMENTATION.md).
 
 ## Support
-
-- **Documentation**: [https://docs.credocentral.com](https://docs.credocentral.com)
-- **Email**: support@credocentral.com
+Contact [support@credocentral.com](mailto:support@credocentral.com) for technical assistance.
 
 ## License
-
-MIT License. See [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](LICENSE).

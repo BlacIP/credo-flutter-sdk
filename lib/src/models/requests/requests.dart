@@ -1,8 +1,17 @@
 import '../enums/enums.dart';
 
-/// Request to initialize a payment transaction
+/// Request model for initializing a payment transaction.
+///
+/// Use this to configure the payment checkout experience, including
+/// customer details, amounts, and enabled payment channels.
 class InitializePaymentRequest {
-  /// Creates an initialize payment request
+  /// Creates an [InitializePaymentRequest].
+  ///
+  /// * [email] is the customer's identifying email address.
+  /// * [amount] is the transaction value in kobo (e.g. 10000 = ₦100.00).
+  /// * [currency] defaults to [Currency.ngn].
+  /// * [bearer] sets who pays transaction fees (0: Customer, 1: Merchant).
+  /// * [initializeAccount] if true, generates a virtual account for bank transfer simulation.
   const InitializePaymentRequest({
     required this.email,
     required this.amount,
@@ -23,55 +32,62 @@ class InitializePaymentRequest {
     this.channels,
   });
 
-  /// Customer email address (required)
+  /// The customer's email address. Required for transaction tracking.
   final String email;
 
-  /// Amount in lowest currency unit, e.g., kobo for NGN (required)
+  /// The transaction amount in the lowest currency unit (e.g. kobo for NGN).
+  /// For example, `10000` represents ₦100.00.
   final int amount;
 
-  /// Unique transaction reference (optional, auto-generated if not provided)
+  /// A unique reference for this transaction.
+  /// If null, Credo will generate one automatically.
   final String? reference;
 
-  /// Currency code (default: NGN)
+  /// The currency code for the transaction. Defaults to [Currency.ngn].
   final Currency currency;
 
-  /// Custom metadata object
+  /// Custom metadata to save extra information with the transaction.
+  /// Useful for linking order IDs or internal database keys.
   final Map<String, dynamic>? metadata;
 
-  /// Callback URL after payment
+  /// The URL to which Credo will redirect the customer after payment.
   final String? callbackUrl;
 
-  /// Service code for the transaction
+  /// The Credo service code for this transaction.
   final String? serviceCode;
 
-  /// Customer first name
+  /// Customer's first name.
   final String? customerFirstName;
 
-  /// Customer last name
+  /// Customer's last name.
   final String? customerLastName;
 
-  /// Customer phone number
+  /// Customer's phone number.
   final String? customerPhoneNumber;
 
-  /// Who bears the transaction charge (0 = customer, 1 = merchant)
+  /// Specifies who bears the transaction fees.
+  /// * `0`: Customer bears the cost.
+  /// * `1`: Merchant bears the cost.
   final int bearer;
 
-  /// Transaction description
+  /// A brief description of the transaction which appears on receipts.
   final String? narration;
 
-  /// Initialize virtual account for bank transfer
+  /// Whether to initialize a dedicated virtual account for this transaction.
+  /// Required if you want to test Bank Transfer simulation.
   final bool initializeAccount;
 
-  /// Pause settlement (0 = no, 1 = yes)
+  /// Whether to pause settlement for this specific transaction.
   final bool pauseSettlement;
 
-  /// Date to resume settlement (YYYY-MM-DD)
+  /// If [pauseSettlement] is true, the date to resume settlement (YYYY-MM-DD).
   final String? pauseSettlementDate;
 
-  /// Split configuration for transaction
+  /// Configuration for splitting the transaction amount among sub-accounts.
   final List<Map<String, dynamic>>? splitConfiguration;
 
-  /// Payment channels to enable
+  /// A list of specific payment channels to enable for this transaction.
+  /// If null, all active channels on your dashboard will be available.
   final List<PaymentChannel>? channels;
 
   /// Convert to JSON

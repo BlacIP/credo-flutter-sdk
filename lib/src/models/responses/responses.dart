@@ -1,8 +1,10 @@
 import '../enums/enums.dart';
 
-/// Response from payment initialization
+/// Response model returned after initializing a payment transaction.
+///
+/// Contains the authorization URL for UI redirection and transaction identifiers.
 class InitializePaymentResponse {
-  /// Creates an initialize payment response
+  /// Creates an [InitializePaymentResponse].
   const InitializePaymentResponse({
     required this.status,
     required this.message,
@@ -15,31 +17,32 @@ class InitializePaymentResponse {
     this.error,
   });
 
-  /// Status code
+  /// The numeric status code returned by the API.
+  /// Typically `200` or `201` for success.
   final int status;
 
-  /// Response message
+  /// A human-readable message describing the result of the initialization.
   final String message;
 
-  /// Authorization URL to redirect customer
+  /// The secure URL used to redirect the customer to the Credo payment page.
   final String? authorizationUrl;
 
-  /// Transaction reference
+  /// Your unique transaction reference.
   final String? reference;
 
-  /// Credo reference
+  /// Credo's internal reference for this transaction.
   final String? credoReference;
 
-  /// Customer Reference Number
+  /// Customer Reference Number (CRN).
   final String? crn;
 
-  /// Virtual account details (if initializeAccount was true)
+  /// Detailed virtual account information if `initializeAccount` was requested.
   final VirtualAccount? account;
 
-  /// Execution time
+  /// Time taken for the API to process the request (in milliseconds).
   final int? execTime;
 
-  /// Error messages
+  /// A list of error strings if the request failed validation.
   final List<String>? error;
 
   /// Check if response is successful
@@ -113,16 +116,16 @@ class VirtualAccount {
     this.amount,
   });
 
-  /// Account number
+  /// The unique bank account number.
   final String accountNumber;
 
-  /// Bank name
+  /// The name of the bank providing the virtual account.
   final String bankName;
 
-  /// Account name
+  /// The intended name for the account.
   final String accountName;
 
-  /// Expected amount to be transferred (including fees)
+  /// The precise amount the customer should transfer, including any fees.
   final double? amount;
 
   /// Create from JSON
