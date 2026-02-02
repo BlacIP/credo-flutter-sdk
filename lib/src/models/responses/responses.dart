@@ -1,5 +1,3 @@
-import '../enums/enums.dart';
-
 /// Response model returned after initializing a payment transaction.
 ///
 /// Contains the authorization URL for UI redirection and transaction identifiers.
@@ -13,6 +11,8 @@ class InitializePaymentResponse {
     this.credoReference,
     this.crn,
     this.account,
+    this.billNumber,
+    this.billInformation,
     this.execTime,
     this.error,
   });
@@ -39,8 +39,14 @@ class InitializePaymentResponse {
   /// Detailed virtual account information if `initializeAccount` was requested.
   final VirtualAccount? account;
 
+  /// Bill number associated with the transaction (if applicable).
+  final String? billNumber;
+
+  /// Additional bill information (if applicable).
+  final BillInformation? billInformation;
+
   /// Time taken for the API to process the request (in milliseconds).
-  final int? execTime;
+  final double? execTime;
 
   /// A list of error strings if the request failed validation.
   final List<String>? error;
@@ -72,8 +78,8 @@ class InitializePaymentResponse {
       final execTimeValue = json['execTime'] ??
           (json['exec_time'] ?? (data['execTime'] ?? data['exec_time']));
       final execTime = execTimeValue is num
-          ? execTimeValue.toInt()
-          : (int.tryParse(execTimeValue?.toString() ?? ''));
+          ? execTimeValue.toDouble()
+          : double.tryParse(execTimeValue?.toString() ?? '');
 
       return InitializePaymentResponse(
         status: status,
@@ -91,6 +97,13 @@ class InitializePaymentResponse {
                 data['account'] is Map<String, dynamic>
             ? VirtualAccount.fromJson(data['account'] as Map<String, dynamic>)
             : null,
+        billNumber: (data['billNumber'] ?? data['bill_number'])?.toString(),
+        billInformation: data['billInformation'] != null &&
+                data['billInformation'] is Map<String, dynamic>
+            ? BillInformation.fromJson(
+                data['billInformation'] as Map<String, dynamic>,
+              )
+            : null,
         execTime: execTime,
         error: json['error'] != null
             ? (json['error'] is List
@@ -99,8 +112,6 @@ class InitializePaymentResponse {
             : null,
       );
     } catch (e, stack) {
-      // ignore: avoid_print
-      print('CRITICAL: InitializePaymentResponse.fromJson failed: $e\n$stack');
       rethrow;
     }
   }
@@ -114,6 +125,7 @@ class VirtualAccount {
     required this.bankName,
     required this.accountName,
     this.amount,
+    this.expiryDate,
   });
 
   /// The unique bank account number.
@@ -128,6 +140,13 @@ class VirtualAccount {
   /// The precise amount the customer should transfer, including any fees.
   final double? amount;
 
+  /// The date/time when the virtual account expires (if provided).
+  final String? expiryDate;
+
+  /// Parsed expiry date as [DateTime] (if [expiryDate] is ISO 8601).
+  DateTime? get expiryDateTime =>
+      expiryDate != null ? DateTime.tryParse(expiryDate!) : null;
+
   /// Create from JSON
   /// Create from JSON
   factory VirtualAccount.fromJson(Map<String, dynamic> json) {
@@ -140,104 +159,40 @@ class VirtualAccount {
       amount: json['amount'] is num
           ? (json['amount'] as num).toDouble()
           : double.tryParse(json['amount']?.toString() ?? ''),
+      expiryDate: (json['expiryDate'] ?? json['expiry_date'])?.toString(),
     );
   }
 }
 
-/// Response from payment verification
-class VerifyPaymentResponse {
-  /// Creates a verify payment response
-  const VerifyPaymentResponse({
-    this.status,
-    this.responseStatus,
-    this.message,
-    this.transRef,
-    this.businessRef,
-    this.debitedAmount,
-    this.transAmount,
-    this.transFeeAmount,
-    this.settlementAmount,
-    this.customerId,
-    this.transactionDate,
-    this.currencyCode,
-    this.paymentMethod,
-    this.narration,
+/// Additional bill information.
+class BillInformation {
+  /// Creates bill information.
+  const BillInformation({
+    this.amountDue,
+    this.payerName,
+    this.agencyName,
   });
 
-  /// Transaction status enum
-  final TransactionStatus? status;
+  /// Outstanding amount due (if provided).
+  final double? amountDue;
 
-  /// Root response status code (e.g., 200)
-  final int? responseStatus;
+  /// Name of the payer.
+  final String? payerName;
 
-  /// Response message
-  final String? message;
+  /// Name of the agency responsible for the bill.
+  final String? agencyName;
 
-  /// Transaction reference
-  final String? transRef;
+  /// Create from JSON.
+  factory BillInformation.fromJson(Map<String, dynamic> json) {
+    final amountDueValue = json['amountDue'] ?? json['amount_due'];
+    final amountDue = amountDueValue is num
+        ? amountDueValue.toDouble()
+        : double.tryParse(amountDueValue?.toString() ?? '');
 
-  /// Business reference
-  final String? businessRef;
-
-  /// Debited amount
-  final String? debitedAmount;
-
-  /// Transaction amount
-  final String? transAmount;
-
-  /// Transaction fee amount
-  final String? transFeeAmount;
-
-  /// Settlement amount
-  final String? settlementAmount;
-
-  /// Customer ID
-  final String? customerId;
-
-  /// Transaction date
-  final String? transactionDate;
-
-  /// Currency code
-  final String? currencyCode;
-
-  /// Payment method
-  final String? paymentMethod;
-
-  /// Narration
-  final String? narration;
-
-  /// Check if transaction was successful
-  bool get isSuccessful => responseStatus == 200;
-
-  /// Create from JSON
-  factory VerifyPaymentResponse.fromJson(Map<String, dynamic> json) {
-    // Support both root level and nested 'data' object
-    final data = json['data'] != null && json['data'] is Map<String, dynamic>
-        ? json['data'] as Map<String, dynamic>
-        : json;
-
-    return VerifyPaymentResponse(
-      status: data['status'] != null
-          ? (data['status'] is int
-              ? TransactionStatus.fromCode(data['status'] as int)
-              : (int.tryParse(data['status'].toString()) != null
-                  ? TransactionStatus.fromCode(
-                      int.parse(data['status'].toString()))
-                  : null))
-          : null,
-      responseStatus: json['status'] as int?,
-      message: json['message'] as String?,
-      transRef: data['transRef'] as String?,
-      businessRef: data['businessRef'] as String?,
-      debitedAmount: data['debitedAmount']?.toString(),
-      transAmount: data['transAmount']?.toString(),
-      transFeeAmount: data['transFeeAmount']?.toString(),
-      settlementAmount: data['settlementAmount']?.toString(),
-      customerId: data['customerId']?.toString(),
-      transactionDate: data['transactionDate'] as String?,
-      currencyCode: data['currencyCode'] as String?,
-      paymentMethod: data['paymentMethod'] as String?,
-      narration: data['narration'] as String?,
+    return BillInformation(
+      amountDue: amountDue,
+      payerName: json['payerName']?.toString(),
+      agencyName: json['agencyName']?.toString(),
     );
   }
 }

@@ -122,14 +122,3 @@ class InitializePaymentRequest {
     return json;
   }
 }
-
-/// Request to verify a payment transaction
-class VerifyPaymentRequest {
-  /// Creates a verify payment request
-  const VerifyPaymentRequest({
-    required this.transRef,
-  });
-
-  /// Transaction reference to verify
-  final String transRef;
-}

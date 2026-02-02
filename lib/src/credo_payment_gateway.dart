@@ -1,3 +1,4 @@
+import 'package:http/http.dart' as http;
 import 'client/credo_api_client.dart';
 import 'models/enums/enums.dart';
 import 'models/requests/requests.dart';
@@ -10,9 +11,15 @@ class CredoPaymentGateway {
   CredoPaymentGateway({
     required String apiKey,
     CredoEnvironment environment = CredoEnvironment.sandbox,
+    http.Client? httpClient,
+    Duration timeout = const Duration(seconds: 30),
+    String? userAgent,
   })  : _apiClient = CredoApiClient(
           apiKey: apiKey,
           environment: environment,
+          httpClient: httpClient,
+          timeout: timeout,
+          userAgent: userAgent,
         ),
         _environment = environment {
     _paymentService = PaymentService(_apiClient);
@@ -33,37 +40,14 @@ class CredoPaymentGateway {
   /// This is the first step in the payment flow. It returns an [InitializePaymentResponse]
   /// which includes the `authorizationUrl` needed to open the checkout WebView.
   Future<InitializePaymentResponse> initializePayment(
-    InitializePaymentRequest request,
-  ) =>
-      _paymentService.initializePayment(request);
-
-  /// Verifies a payment transaction via your secure backend servant (RECOMMENDED).
-  ///
-  /// For production, you should never store your Secret Key in the mobile app.
-  /// Use this method to hit your server endpoint, which will proxy the
-  /// request to Credo using your Secret Key and return the status.
-  ///
-  /// * [backendUrl]: The full endpoint URL of your verification service.
-  /// * [transRef]: The transaction reference obtained after initialization.
-  /// * [headers]: Optional headers (e.g., Auth tokens) for your backend.
-  Future<VerifyPaymentResponse> verifyPaymentViaBackend(
-    String backendUrl,
-    String transRef, {
-    Map<String, String>? headers,
+    InitializePaymentRequest request, {
+    String? idempotencyKey,
   }) =>
-      _paymentService.verifyPaymentViaBackend(
-        backendUrl,
-        transRef,
-        headers: headers,
+      _paymentService.initializePayment(
+        request,
+        idempotencyKey: idempotencyKey,
       );
 
-  /// Verifies a payment transaction directly with Credo (NOT RECOMMENDED for production).
-  ///
-  /// **WARNING**: This requires a Secret Key which should NEVER be embedded
-  /// in a client-side application. Only use this for rapid prototyping
-  /// in a sandbox environment.
-  Future<VerifyPaymentResponse> verifyPaymentDirectly(String transRef) =>
-      _paymentService.verifyPaymentDirectly(
-        VerifyPaymentRequest(transRef: transRef),
-      );
+  /// Close the underlying HTTP client (if owned by the SDK).
+  void close() => _apiClient.close();
 }

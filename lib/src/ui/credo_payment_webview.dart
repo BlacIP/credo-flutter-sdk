@@ -10,6 +10,9 @@ class CredoPaymentWebView extends StatefulWidget {
     required this.onSuccess,
     required this.onError,
     required this.onCancelled,
+    this.appBar,
+    this.showAppBar = true,
+    this.loadingWidget,
     super.key,
   });
 
@@ -27,6 +30,15 @@ class CredoPaymentWebView extends StatefulWidget {
 
   /// Called when payment is cancelled
   final VoidCallback onCancelled;
+
+  /// Optional custom AppBar for the checkout screen
+  final PreferredSizeWidget? appBar;
+
+  /// Whether to show an AppBar (ignored if [appBar] is provided)
+  final bool showAppBar;
+
+  /// Optional loading widget shown while the page is loading
+  final Widget? loadingWidget;
 
   @override
   State<CredoPaymentWebView> createState() => _CredoPaymentWebViewState();
@@ -97,24 +109,32 @@ class _CredoPaymentWebViewState extends State<CredoPaymentWebView> {
 
   @override
   Widget build(BuildContext context) {
+    final resolvedAppBar = widget.appBar ??
+        (widget.showAppBar
+            ? AppBar(
+                title: const Text('Complete Payment'),
+                leading: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    if (!_hasCompleted) {
+                      widget.onCancelled();
+                    }
+                  },
+                ),
+              )
+            : null);
+
+    final loadingOverlay =
+        widget.loadingWidget ?? const Center(child: CircularProgressIndicator());
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Complete Payment'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () {
-            if (!_hasCompleted) {
-              widget.onCancelled();
-            }
-          },
-        ),
-      ),
+      appBar: resolvedAppBar,
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
           if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
+            Positioned.fill(
+              child: loadingOverlay,
             ),
         ],
       ),

@@ -1,58 +1,52 @@
-# Credo Flutter SDK - Integration Guide
+# Credo Flutter SDK - Developer Documentation
 
-The Credo Flutter SDK provides methods that allow developers to build a secure and convenient payment flow for their Flutter applications. Integration is a simple two-step process:
+This document is the **developer reference** for the Flutter SDK. It focuses on
+public classes, parameters, and behavior.
 
-1.  **Initiate the transaction**: Get an authorization URL from the SDK (Client) or API (Server).
-2.  **Complete it on the SDK**: Use the `CredoPaymentWebView` to handle the checkout.
-
-> [!NOTE]
-> The benefit of this flow is that you keep your **Secret Key** away from the client side, which is a secure standard practice.
+For a step-by-step integration walkthrough, see `GUIDE.md`.
 
 ---
 
-## � Project Requirements
+## Overview
 
-The Credo Flutter SDK adopts modern patterns which limit the older versions of OSs we support. Ensure your project meets these requirements:
+The Credo Flutter SDK is a **hosted-checkout SDK**. It opens Credo's checkout
+page in a WebView and provides callbacks for success, failure, and cancellation.
+
+**Security boundary**:
+- The SDK uses **Public Keys** only.
+- **Verification must happen on your backend** with your Secret Key.
+
+---
+
+## Requirements
 
 - **Flutter**: `>= 3.0.0`
 - **iOS**: `>= 13.0`
-- **Android**: `Min SDK 21` and `Compile SDK 34`
+- **Android**: `Min SDK 21`, `Compile SDK 34`
 
-> [!IMPORTANT]
-> **Android Activity Requirement**  
-> Ensure your `MainActivity` in the `android` folder extends `FlutterActivity` or `FlutterFragmentActivity` for optimal WebView performance.
+> Android Activity requirement: ensure your `MainActivity` extends
+> `FlutterActivity` or `FlutterFragmentActivity` for WebView compatibility.
 
 ---
 
-## 🚀 Getting Started
-
-To add the Credo Flutter SDK to your project, run the command below in your terminal:
+## Installation
 
 ```bash
 flutter pub add credo_flutter_sdk
 ```
 
-This command adds `credo_flutter_sdk` to your package's dependencies in the `pubspec.yaml` file and installs it. To use the library, import it in your `.dart` file:
-
+Import:
 ```dart
 import 'package:credo_flutter_sdk/credo_flutter_sdk.dart';
 ```
 
 ---
 
-## 🛡️ Secret Key Safeguarding
+## Core API
 
-> [!CAUTION]
-> **Do not make API requests that require your Secret Key directly from your mobile app.**  
-> Your Secret Key should only be used on your secure server. Use your **Public Key** for SDK initialization.
+### `CredoPaymentGateway`
 
----
-
-## � CredoPaymentGateway Class
-
-The `CredoPaymentGateway` class provides methods for managing payments. 
-
-### Initialization
+Create the SDK client:
 ```dart
 final credo = CredoPaymentGateway(
   apiKey: 'pk_domain_xxxxxx',
@@ -60,87 +54,176 @@ final credo = CredoPaymentGateway(
 );
 ```
 
-### `initializePayment()`
-This method prepares a transaction. It returns an `InitializePaymentResponse` containing the `authorizationUrl`.
+Optional configuration:
+- `httpClient`: provide a custom `http.Client` (useful for testing).
+- `timeout`: request timeout (default: 30 seconds).
+- `userAgent`: optional User-Agent header.
 
-| Parameter | Type | Required | Description |
-| :--- | :--- | :--- | :--- |
-| `request` | `InitializePaymentRequest` | Yes | Object containing amount, email, and config. |
+If you pass a custom `httpClient`, you are responsible for closing it. Otherwise
+you can call `credo.close()` to dispose the internal client.
 
-**Method Usage:**
-```dart
-try {
-  final response = await credo.initializePayment(
-    InitializePaymentRequest(
-      email: 'customer@email.com',
-      amount: 5000, // ₦50.00
-    ),
-  );
-  
-  if (response.isSuccessful) {
-    // Navigate to WebView
-  }
-} catch (e) {
-  print('Initialization failed: $e');
-}
-```
+#### `initializePayment(InitializePaymentRequest request, {String? idempotencyKey})`
+Initializes a transaction and returns an `InitializePaymentResponse` that
+contains the `authorizationUrl` to load in the checkout UI.
+
+> If you plan to use the SDK WebView, ensure `callbackUrl` in the request matches
+> the `callbackUrl` passed to the WebView.
+
+`idempotencyKey` (optional) is sent as the `Idempotency-Key` header.
 
 ---
 
-## � UI Components
+## Request Models
+
+### `InitializePaymentRequest`
+
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `email` | `String` | Yes | Customer email address. |
+| `amount` | `int` | Yes | Amount in lowest currency unit (e.g., kobo). |
+| `reference` | `String?` | No | Unique transaction reference. |
+| `currency` | `Currency` | No | Defaults to `Currency.ngn`. |
+| `metadata` | `Map<String, dynamic>?` | No | Custom metadata. |
+| `callbackUrl` | `String?` | No | Redirect URL after payment. |
+| `serviceCode` | `String?` | No | Credo service code. |
+| `customerFirstName` | `String?` | No | Customer first name. |
+| `customerLastName` | `String?` | No | Customer last name. |
+| `customerPhoneNumber` | `String?` | No | Customer phone number. |
+| `bearer` | `int` | No | `0` = customer, `1` = merchant. |
+| `narration` | `String?` | No | Transaction narration. |
+| `initializeAccount` | `bool` | No | Enable virtual account generation. |
+| `pauseSettlement` | `bool` | No | Pause settlement for transaction. |
+| `pauseSettlementDate` | `String?` | No | Resume date (YYYY-MM-DD). |
+| `splitConfiguration` | `List<Map<String, dynamic>>?` | No | Split config list. |
+| `channels` | `List<PaymentChannel>?` | No | Allowed payment channels. |
+
+---
+
+## Response Models
+
+### `InitializePaymentResponse`
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `status` | `int` | Status code from API. |
+| `message` | `String` | Response message. |
+| `authorizationUrl` | `String?` | URL to open in checkout. |
+| `reference` | `String?` | Your transaction reference. |
+| `credoReference` | `String?` | Credo reference. |
+| `crn` | `String?` | Credo Reference Number. |
+| `account` | `VirtualAccount?` | Virtual account details (if enabled). |
+| `billNumber` | `String?` | Bill number associated with the transaction. |
+| `billInformation` | `BillInformation?` | Additional bill information (if provided). |
+| `execTime` | `double?` | Processing time in ms. |
+| `error` | `List<String>?` | Error list (if any). |
+
+`isSuccessful` is true for status `200`, `201`, or `0`.
+
+### `VirtualAccount`
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `accountNumber` | `String` | Virtual account number. |
+| `bankName` | `String` | Bank name. |
+| `accountName` | `String` | Account name. |
+| `amount` | `double?` | Expected transfer amount (if provided). |
+| `expiryDate` | `String?` | Virtual account expiry date/time (if provided). |
+
+### `BillInformation`
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `amountDue` | `double?` | Outstanding amount due (if provided). |
+| `payerName` | `String?` | Name of the payer. |
+| `agencyName` | `String?` | Name of the agency responsible for the bill. |
+
+---
+
+## Enums
+
+### `CredoEnvironment`
+- `production` → `https://api.credocentral.com`
+- `sandbox` → `https://api.credodemo.com`
+
+### `Currency`
+- `ngn` → `NGN`
+- `usd` → `USD`
+
+### `PaymentChannel`
+- `card`, `bank`, `ussd`, `qr`, `mobileMoney`, `bankTransfer`
+
+### `TransactionStatus`
+Codes:
+`0` Successful, `1` Refunded, `2` Refund, `3` Failed, `4` Settle,
+`5` Settled, `6` Review, `7` Declined, `9` Cancelled (customer),
+`10` Cancelled (merchant), `12` Attempted (bank transfer created),
+`13` Attempted (payment attempt), `14` Initialised, `15` Initialising.
+
+> Note: statuses 14 and 15 may not appear in transaction history yet.
+
+---
+
+## UI Components
 
 ### `CredoPaymentWebView`
-This widget loads the payment UI.
+Low-level checkout widget with full control over UI.
 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `authorizationUrl` | `String` | Yes | The URL from initialization. |
-| `onSuccess` | `Function(String)`| Yes | Callback with transaction reference. |
-| `onCancelled` | `VoidCallback` | No | Callback when user closes WebView manually. |
+| `authorizationUrl` | `String` | Yes | URL from initialization. |
+| `callbackUrl` | `String` | Yes | Must match initialization callback. |
+| `onSuccess` | `Function(String)` | Yes | Called with transaction reference. |
+| `onError` | `Function(String)` | Yes | Called on load or payment failure. |
+| `onCancelled` | `VoidCallback` | Yes | Called when user closes WebView. |
+| `appBar` | `PreferredSizeWidget` | No | Custom AppBar. |
+| `showAppBar` | `bool` | No | Show default AppBar (default: true). |
+| `loadingWidget` | `Widget` | No | Custom loading widget. |
 
----
-
-## ✅ Transaction Verification
-
-### `verifyPaymentViaBackend()`
-**[RECOMMENDED]** Use this to verify transactions securely via your server.
+### `CredoCheckout.launch(...)`
+High-level helper that opens the checkout and returns a result.
 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `backendUrl` | `String` | Yes | Your server's verification endpoint. |
-| `transRef` | `String` | Yes | The reference from `onSuccess`. |
-| `headers` | `Map<String, String>`| No | Auth headers for your backend. |
+| `context` | `BuildContext` | Yes | Build context for route push. |
+| `authorizationUrl` | `String` | Yes | URL from initialization. |
+| `callbackUrl` | `String` | Yes | Must match initialization callback. |
+| `appBar` | `PreferredSizeWidget` | No | Custom AppBar. |
+| `showAppBar` | `bool` | No | Show default AppBar (default: true). |
+| `loadingWidget` | `Widget` | No | Custom loading widget. |
+| `routeSettings` | `RouteSettings` | No | Optional route settings. |
+| `useExternalBrowserOnWeb` | `bool` | No | Open checkout in external browser on web (default: true). |
+| `useExternalBrowserOnDesktop` | `bool` | No | Open checkout in external browser on desktop (default: true). |
+| `externalLaunchMode` | `LaunchMode` | No | `url_launcher` launch mode for external browser. |
 
-**Method Usage:**
-```dart
-final result = await credo.verifyPaymentViaBackend(
-  'https://your-api.com/verify',
-  reference,
-);
-
-if (result.status == TransactionStatus.successful) {
-  print('Transaction confirmed!');
-}
-```
+#### `CredoCheckoutResult`
+Returned from `launch()`:
+- `status` → `CredoCheckoutStatus.success | cancelled | pending | failed`
+- `reference` → transaction reference on success
+- `message` → informational message (used for pending)
+- `error` → failure message on error
 
 ---
 
-## ⚠️ Error Handling
+## Exceptions
 
-| Exception | Description |
+| Exception | Meaning |
 | :--- | :--- |
-| `CredoApiException` | API rejected request. Check `statusCode` and `errors`. |
-| `CredoNetworkException` | Internet connectivity or TLS error. |
-| `CredoValidationException`| Missing required fields in your request model. |
-| `CredoWebViewException` | Error loading the checkout page. |
+| `CredoApiException` | API rejected request (check statusCode/errors). |
+| `CredoNetworkException` | Network or connectivity failure. |
+| `CredoValidationException` | Invalid parameters (if used by caller). |
+| `CredoWebViewException` | WebView/checkout error. |
 
 ---
 
-## 🔐 Webhooks
+## Backend Verification (Required)
 
-Credo sends server-to-server notifications called Webhooks.
+Verification is **backend-only**. Your backend should call:
+`GET /transaction/{transRef}/verify` with your **Secret Key** and return the
+status to the app.
 
-**Endpoint Signature Verification:**
-Confirm the authenticity of notifications using the `credo-signature` header.
+---
 
-Algorithm: `sha256(merchantToken + transRef + businessRef)`
+## Web/Desktop Note
+
+For Flutter Web/desktop apps, you may choose to open the `authorizationUrl`
+in an external browser using `url_launcher` and then verify on return.

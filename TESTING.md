@@ -38,46 +38,17 @@ Verify that `credo.initializePayment()` returns a valid `authorizationUrl` and `
 
 ### 2. WebView Interaction
 - **Mobile**: Confirm the `CredoPaymentWebView` opens correctly and detects the success URL to trigger `onSuccess`.
-- **Web/Desktop**: Ensure `url_launcher` opens a new tab and you provide a manual "Verify" button for when the user returns.
+- **Web/Desktop**: Ensure `url_launcher` opens a new tab and your app sends the reference to your backend for verification when the user returns.
 
 ---
 
-## 🛡️ Security & Verification Testing
+## 🛡️ Backend Verification
 
-### 1. Direct Verification (Dev Only)
-Use `verifyPaymentDirectly()` **only** during development to quickly check status:
-
-```dart
-final response = await credo.verifyPaymentDirectly(reference);
-expect(response.isSuccessful, true);
-```
-
-### 2. Backend-Mediated Verification (Production Mock)
-Test your production flow by mocking your backend endpoint:
-
-```dart
-// Mock endpoint: https://mock.api/verify?transRef=REF
-final response = await credo.verifyPaymentViaBackend(
-  'https://mock.api/verify',
-  reference,
-);
-```
-
----
-
-## 🛠️ Webhook Simulation
-To test webhooks on your backend:
-1. Initialize a payment with a `reference`.
-2. Use the **Simulate Bank Transfer** button in the example app.
-3. Verify that your backend receives a POST request with a valid `credo-signature`.
-
-### Signature Verification Test
-Verify your algorithm matches Credo's expectation:
-`SHA256(merchantToken + transRef + businessRef)`
+After `onSuccess`, send the transaction reference to your backend and verify
+with your Secret Key. This SDK does not perform verification on-device.
 
 ---
 
 ## 💡 Troubleshooting Checklist
-- [ ] **Rejected (Simulation)**: Check that `feeAmount` is included in your simulation call.
 - [ ] **401 Unauthorized**: Ensure you are using a **Public Key** in the app.
 - [ ] **Empty WebView**: Verify your `callbackUrl` is valid.

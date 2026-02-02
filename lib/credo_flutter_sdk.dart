@@ -11,9 +11,9 @@ export 'src/credo_payment_gateway.dart';
 export 'src/models/enums/enums.dart';
 export 'src/models/requests/requests.dart';
 export 'src/models/responses/responses.dart';
-export 'src/models/webhook/webhook.dart';
 
 // UI Components
+export 'src/ui/credo_checkout.dart';
 export 'src/ui/credo_payment_webview.dart';
 
 // Exceptions
@@ -21,6 +21,3 @@ export 'src/exceptions/credo_exception.dart';
 
 // Services (optional, for advanced usage)
 export 'src/services/payment_service.dart';
-
-// Utils
-export 'src/utils/webhook_helper.dart';

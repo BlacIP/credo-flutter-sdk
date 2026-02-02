@@ -67,29 +67,21 @@ Navigator.push(
   MaterialPageRoute(
     builder: (context) => CredoPaymentWebView(
       authorizationUrl: response.authorizationUrl!,
+      callbackUrl: 'https://your-app.com/callback',
       onSuccess: (ref) => handleSuccess(ref),
+      onError: (error) => handleError(error),
+      onCancelled: () => handleCancel(),
     ),
   ),
 );
 ```
+> After successful payment, send the reference to your backend for verification.
 
 ---
 
-## ✅ Secure Verification
-
-For production, always verify transactions via your backend:
-
-```dart
-await credo.verifyPaymentViaBackend(
-  'https://your-api.com/verify', // Your backend endpoint
-  reference,
-);
-```
-
----
-
-## 📖 Detailed Documentation
-For detailed parameter references, error codes, and webhook guides, see our [Full Technical Guide](DOCUMENTATION.md).
+## 📖 Documentation
+- Developer reference: `DOCUMENTATION.md`
+- Integration walkthrough: `GUIDE.md`
 
 ## Support
 Contact [support@credocentral.com](mailto:support@credocentral.com) for technical assistance.

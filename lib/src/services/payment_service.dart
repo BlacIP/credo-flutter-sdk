@@ -1,5 +1,6 @@
 import '../client/api_endpoints.dart';
 import '../client/credo_api_client.dart';
+import '../exceptions/credo_exception.dart';
 import '../models/requests/requests.dart';
 import '../models/responses/responses.dart';
 
@@ -11,47 +12,64 @@ class PaymentService {
   final CredoApiClient _apiClient;
 
   Future<InitializePaymentResponse> initializePayment(
-    InitializePaymentRequest request,
-  ) async {
+    InitializePaymentRequest request, {
+    String? idempotencyKey,
+  }) async {
+    _validateInitializeRequest(request);
     final response = await _apiClient.post(
       ApiEndpoints.initializePayment,
       request.toJson(),
+      idempotencyKey: idempotencyKey,
     );
 
     return InitializePaymentResponse.fromJson(response);
   }
 
-  /// Verify a payment transaction via your secure backend (RECOMMENDED)
-  ///
-  /// This method calls your backend endpoint, which should then call Credo
-  /// using your SECRET KEY. This keeps your credentials secure.
-  ///
-  /// [backendUrl] is your server endpoint that handles verification.
-  /// The SDK will append the transRef as a query parameter or path segment
-  /// based on your implementation. By default, it sends it as a query param.
-  Future<VerifyPaymentResponse> verifyPaymentViaBackend(
-    String backendUrl,
-    String transRef, {
-    Map<String, String>? headers,
-  }) async {
-    final separator = backendUrl.contains('?') ? '&' : '?';
-    final url = Uri.parse('$backendUrl${separator}transRef=$transRef');
+  void _validateInitializeRequest(InitializePaymentRequest request) {
+    final email = request.email.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      throw const CredoValidationException('Invalid customer email address.');
+    }
 
-    final response = await _apiClient.externalGet(url, headers: headers);
-    return VerifyPaymentResponse.fromJson(response);
-  }
+    if (request.amount <= 0) {
+      throw const CredoValidationException('Amount must be greater than zero.');
+    }
 
-  /// Verify a payment transaction directly with Credo (NOT RECOMMENDED for production)
-  ///
-  /// WARNING: This requires a SECRET KEY which should NEVER be placed
-  /// in a mobile app. Use only for rapid prototyping or sandbox testing.
-  Future<VerifyPaymentResponse> verifyPaymentDirectly(
-    VerifyPaymentRequest request,
-  ) async {
-    final response = await _apiClient.get(
-      ApiEndpoints.verifyPayment(request.transRef),
-    );
+    if (request.reference != null && request.reference!.trim().isEmpty) {
+      throw const CredoValidationException(
+        'Reference cannot be an empty string.',
+      );
+    }
 
-    return VerifyPaymentResponse.fromJson(response);
+    if (request.callbackUrl != null) {
+      final uri = Uri.tryParse(request.callbackUrl!);
+      if (uri == null || !uri.hasScheme) {
+        throw const CredoValidationException('Invalid callbackUrl provided.');
+      }
+    }
+
+    if (request.channels != null && request.channels!.isEmpty) {
+      throw const CredoValidationException(
+        'Channels cannot be an empty list when provided.',
+      );
+    }
+
+    if (request.pauseSettlement &&
+        (request.pauseSettlementDate == null ||
+            request.pauseSettlementDate!.trim().isEmpty)) {
+      throw const CredoValidationException(
+        'pauseSettlementDate is required when pauseSettlement is true.',
+      );
+    }
+
+    if (request.pauseSettlementDate != null) {
+      final isValidDate =
+          RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(request.pauseSettlementDate!);
+      if (!isValidDate) {
+        throw const CredoValidationException(
+          'pauseSettlementDate must be in YYYY-MM-DD format.',
+        );
+      }
+    }
   }
 }

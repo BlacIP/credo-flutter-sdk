@@ -9,29 +9,49 @@ class CredoApiClient {
   CredoApiClient({
     required String apiKey,
     CredoEnvironment environment = CredoEnvironment.sandbox,
+    http.Client? httpClient,
+    Duration timeout = const Duration(seconds: 30),
+    String? userAgent,
   })  : _apiKey = apiKey,
-        _environment = environment;
+        _environment = environment,
+        _client = httpClient ?? http.Client(),
+        _ownsClient = httpClient == null,
+        _timeout = timeout,
+        _userAgent = userAgent;
 
   final String _apiKey;
   final CredoEnvironment _environment;
+  final http.Client _client;
+  final bool _ownsClient;
+  final Duration _timeout;
+  final String? _userAgent;
 
   /// Get base URL for current environment
   String get baseUrl => _environment.baseUrl;
 
   /// Get common headers
-  Map<String, String> get _headers {
-    return {
+  Map<String, String> _headers({String? idempotencyKey}) {
+    final headers = <String, String>{
       'Authorization': _apiKey, // Standard raw key
       'api-public-key': _apiKey, // Required for verification/others
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
+    if (_userAgent != null && _userAgent!.trim().isNotEmpty) {
+      headers['User-Agent'] = _userAgent!;
+    }
+    if (idempotencyKey != null && idempotencyKey.trim().isNotEmpty) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
+    return headers;
   }
 
   /// Make a POST request
   Future<Map<String, dynamic>> post(
     String endpoint,
-    Map<String, dynamic> body,
+    Map<String, dynamic> body, {
+    String? idempotencyKey,
+  }
   ) async {
     try {
       final url = Uri.parse('$baseUrl$endpoint');
@@ -43,11 +63,13 @@ class CredoApiClient {
         ...body,
       };
 
-      final response = await http.post(
+      final response = await _client
+          .post(
         url,
-        headers: _headers,
+        headers: _headers(idempotencyKey: idempotencyKey),
         body: jsonEncode(requestBody),
-      );
+      )
+          .timeout(_timeout);
 
       return _handleResponse(response);
     } catch (e) {
@@ -66,31 +88,12 @@ class CredoApiClient {
       final url =
           Uri.parse('$baseUrl$endpoint$separator' 'api-public-key=$_apiKey');
 
-      final response = await http.get(
+      final response = await _client
+          .get(
         url,
-        headers: _headers,
-      );
-
-      return _handleResponse(response);
-    } catch (e) {
-      if (e is CredoException) rethrow;
-      throw CredoNetworkException(
-        'Network request failed',
-        e.toString(),
-      );
-    }
-  }
-
-  /// Make a GET request to an external URL (e.g., your backend)
-  Future<Map<String, dynamic>> externalGet(
-    Uri url, {
-    Map<String, String>? headers,
-  }) async {
-    try {
-      final response = await http.get(
-        url,
-        headers: headers,
-      );
+        headers: _headers(),
+      )
+          .timeout(_timeout);
 
       return _handleResponse(response);
     } catch (e) {
@@ -104,8 +107,40 @@ class CredoApiClient {
 
   /// Handle HTTP response
   Map<String, dynamic> _handleResponse(http.Response response) {
+    if (response.body.isEmpty) {
+      throw CredoApiException(
+        'Empty response body',
+        statusCode: response.statusCode,
+      );
+    }
+
+    dynamic decoded;
     try {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      if (response.statusCode >= 400) {
+        throw CredoApiException(
+          response.body,
+          statusCode: response.statusCode,
+          details: response.body,
+        );
+      }
+      throw CredoApiException(
+        'Invalid response format',
+        statusCode: response.statusCode,
+        details: response.body,
+      );
+    }
+
+    if (decoded is! Map<String, dynamic>) {
+      throw CredoApiException(
+        'Unexpected response format',
+        statusCode: response.statusCode,
+        details: response.body,
+      );
+    }
+
+    final data = decoded as Map<String, dynamic>;
 
       // Check for API errors
       if (response.statusCode >= 400) {
@@ -137,13 +172,13 @@ class CredoApiClient {
         );
       }
 
-      return data;
-    } on FormatException {
-      throw CredoApiException(
-        'Invalid response format',
-        statusCode: response.statusCode,
-        details: response.body,
-      );
+    return data;
+  }
+
+  /// Close the underlying HTTP client (if owned).
+  void close() {
+    if (_ownsClient) {
+      _client.close();
     }
   }
 }
