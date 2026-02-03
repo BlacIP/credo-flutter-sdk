@@ -140,37 +140,37 @@ class CredoApiClient {
       );
     }
 
-    final data = decoded as Map<String, dynamic>;
+    final data = decoded;
 
-      // Check for API errors
-      if (response.statusCode >= 400) {
-        final errors = data['error'] != null
-            ? (data['error'] is List
-                ? List<String>.from(data['error'] as List)
-                : [data['error'].toString()])
-            : null;
+    // Check for API errors
+    if (response.statusCode >= 400) {
+      final errors = data['error'] != null
+          ? (data['error'] is List
+              ? List<String>.from(data['error'] as List)
+              : [data['error'].toString()])
+          : null;
 
-        throw CredoApiException(
-          data['message'] as String? ?? 'Request failed',
-          statusCode: response.statusCode,
-          errors: errors,
-        );
-      }
+      throw CredoApiException(
+        data['message'] as String? ?? 'Request failed',
+        statusCode: response.statusCode,
+        errors: errors,
+      );
+    }
 
-      // Check for error field in successful response
-      final errorField = data['error'];
-      if (errorField != null &&
-          ((errorField is String && errorField.isNotEmpty) ||
-              (errorField is List && errorField.isNotEmpty) ||
-              (errorField is Map && errorField.isNotEmpty))) {
-        final errorMessage =
-            errorField is List ? errorField.join(', ') : errorField.toString();
+    // Check for error field in successful response
+    final errorField = data['error'];
+    if (errorField != null &&
+        ((errorField is String && errorField.isNotEmpty) ||
+            (errorField is List && errorField.isNotEmpty) ||
+            (errorField is Map && errorField.isNotEmpty))) {
+      final errorMessage =
+          errorField is List ? errorField.join(', ') : errorField.toString();
 
-        throw CredoApiException(
-          errorMessage,
-          statusCode: response.statusCode,
-        );
-      }
+      throw CredoApiException(
+        errorMessage,
+        statusCode: response.statusCode,
+      );
+    }
 
     return data;
   }

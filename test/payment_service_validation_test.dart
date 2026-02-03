@@ -1,6 +1,5 @@
 import 'package:credo_flutter_sdk/credo_flutter_sdk.dart';
 import 'package:credo_flutter_sdk/src/client/credo_api_client.dart';
-import 'package:credo_flutter_sdk/src/services/payment_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

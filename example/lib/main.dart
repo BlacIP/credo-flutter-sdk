@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:credo_flutter_sdk/credo_flutter_sdk.dart';
 
 void main() {
@@ -48,7 +48,7 @@ class _PaymentExamplePageState extends State<PaymentExamplePage> {
     );
   }
 
-  Future<void> _initializePayment() async {
+  Future<void> _startCheckout({required bool useLaunchHelper}) async {
     setState(() {
       _isLoading = true;
       _result = null;
@@ -71,83 +71,7 @@ class _PaymentExamplePageState extends State<PaymentExamplePage> {
       // ignore: avoid_print
       print('DEBUG: response.authorizationUrl: ${response.authorizationUrl}');
 
-      if (response.isSuccessful) {
-        if (response.authorizationUrl != null) {
-          // [BEST PRACTICE]: Save the response.authorizationUrl and response.reference
-          // to your local storage or backend. If the customer returns to your app
-          // before completing the payment, reuse this URL instead of initializing
-          // a new transaction to avoid duplicates.
-
-          if (!mounted) return;
-
-          // ignore: avoid_print
-          print('DEBUG: Navigating to payment page');
-
-          if (const bool.fromEnvironment('dart.library.js_util') ||
-              identical(0, 0.0)) {
-            // ignore: avoid_print
-            print('DEBUG: Web platform detected, using url_launcher');
-            final uri = Uri.parse(response.authorizationUrl!);
-            // We use launchUrl without canLaunchUrl for web as it's more reliable
-            try {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-              setState(() {
-                _result = 'Payment page opened in new tab.\n'
-                    'Complete payment, then your app should verify on the backend.';
-                _isLoading = false;
-              });
-            } catch (e) {
-              // ignore: avoid_print
-              print('DEBUG: launchUrl failed: $e');
-              setState(() {
-                _result = 'Could not launch payment URL: $e';
-                _isLoading = false;
-              });
-            }
-          } else {
-            // ignore: avoid_print
-            print('DEBUG: Mobile platform detected, using WebView');
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CredoPaymentWebView(
-                  authorizationUrl: response.authorizationUrl!,
-                  callbackUrl: 'https://your-app.com/callback',
-                  onSuccess: (reference) {
-                    Navigator.pop(context);
-                    setState(() {
-                      _result = 'Payment completed!\n'
-                          'Reference: $reference\n\n'
-                          'Send this reference to your backend for verification.';
-                      _isLoading = false;
-                    });
-                  },
-                  onError: (error) {
-                    Navigator.pop(context);
-                    setState(() {
-                      _result = 'Payment failed: $error';
-                      _isLoading = false;
-                    });
-                  },
-                  onCancelled: () {
-                    Navigator.pop(context);
-                    setState(() {
-                      _result = 'Payment cancelled';
-                      _isLoading = false;
-                    });
-                  },
-                ),
-              ),
-            );
-          }
-        } else {
-          setState(() {
-            _result = 'Initialization succeeded but no authorizationUrl '
-                'was returned.';
-            _isLoading = false;
-          });
-        }
-      } else {
+      if (!response.isSuccessful) {
         setState(() {
           _result = 'Failed to initialize payment.\n'
               'Status: ${response.status}\n'
@@ -155,10 +79,99 @@ class _PaymentExamplePageState extends State<PaymentExamplePage> {
               'URL: ${response.authorizationUrl ?? "MISSING"}';
           _isLoading = false;
         });
+        return;
       }
+
+      if (response.authorizationUrl == null) {
+        setState(() {
+          _result = 'Initialization succeeded but no authorizationUrl '
+              'was returned.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      if (!mounted) return;
+
+      // ignore: avoid_print
+      print('DEBUG: Navigating to payment page');
+
+      if (useLaunchHelper) {
+        final result = await CredoCheckout.launch(
+          context: context,
+          authorizationUrl: response.authorizationUrl!,
+          callbackUrl: 'https://your-app.com/callback',
+        );
+
+        if (!mounted) return;
+
+        setState(() {
+          if (result.isSuccessful) {
+            _result = 'Payment completed (launch helper)!\n'
+                'Reference: ${result.reference}\n\n'
+                'Send this reference to your backend for verification.';
+          } else if (result.isPending) {
+            _result = result.message ??
+                'Checkout opened externally. Verify on backend after return.';
+          } else if (result.status == CredoCheckoutStatus.cancelled) {
+            _result = 'Payment cancelled';
+          } else {
+            _result = 'Payment failed: ${result.error ?? "Unknown error"}';
+          }
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final isMobilePlatform = !kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.android ||
+              defaultTargetPlatform == TargetPlatform.iOS);
+      if (!isMobilePlatform) {
+        setState(() {
+          _result =
+              'Custom WebView is available on mobile only. Use the launch helper '
+              'for web/desktop.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CredoPaymentWebView(
+            authorizationUrl: response.authorizationUrl!,
+            callbackUrl: 'https://your-app.com/callback',
+            onSuccess: (reference) {
+              Navigator.pop(context);
+              setState(() {
+                _result = 'Payment completed (custom WebView)!\n'
+                    'Reference: $reference\n\n'
+                    'Send this reference to your backend for verification.';
+                _isLoading = false;
+              });
+            },
+            onError: (error) {
+              Navigator.pop(context);
+              setState(() {
+                _result = 'Payment failed: $error';
+                _isLoading = false;
+              });
+            },
+            onCancelled: () {
+              Navigator.pop(context);
+              setState(() {
+                _result = 'Payment cancelled';
+                _isLoading = false;
+              });
+            },
+            showAppBar: false,
+          ),
+        ),
+      );
     } catch (e) {
       // ignore: avoid_print
-      print('DEBUG: Caught exception in _initializePayment: $e');
+      print('DEBUG: Caught exception in _startCheckout: $e');
       setState(() {
         _result = 'Error: $e';
         _isLoading = false;
@@ -227,25 +240,50 @@ class _PaymentExamplePageState extends State<PaymentExamplePage> {
             const SizedBox(height: 24),
 
             // Action Buttons
-            ElevatedButton(
-              onPressed: _isLoading ? null : _initializePayment,
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Initialize Payment'),
+            Text(
+              'Choose Checkout Mode',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () => _startCheckout(useLaunchHelper: true),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Quick Launch'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () => _startCheckout(useLaunchHelper: false),
+                    child: const Text('Custom WebView'),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 24),
 
             // Result Display
             if (_result != null)
               Card(
-                color: _result!.contains('Successful')
+                color: _result!.toLowerCase().contains('completed') ||
+                        _result!.toLowerCase().contains('success')
                     ? Colors.green.shade50
-                    : _result!.contains('failed') || _result!.contains('Error')
+                    : _result!.toLowerCase().contains('failed') ||
+                            _result!.toLowerCase().contains('error')
                         ? Colors.red.shade50
                         : Colors.orange.shade50,
                 child: Padding(

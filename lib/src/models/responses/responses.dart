@@ -111,7 +111,7 @@ class InitializePaymentResponse {
                 : [json['error'].toString()])
             : null,
       );
-    } catch (e, stack) {
+    } catch (e) {
       rethrow;
     }
   }
